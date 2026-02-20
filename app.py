@@ -1,3 +1,4 @@
+# pylint: disable=import-error
 from fastapi import FastAPI
 from db import engine, SessionLocal, Base
 from models import Workflow
@@ -29,26 +30,26 @@ def create_workflow():
         db.close()
 @app.post("/workflows/{workflow_id}/start")
 def start_workflow(workflow_id: int):
-        db: Session = SessionLocal()
-        try:
-            workflow = (
-                db.query(Workflow)
-                .filter(Workflow.id==workflow_id)
-                .first()
-            )
-            if not workflow:
-                return {"error": "Workflow not found"}
-            if workflow.status != "CREATED":
-                return {"error": "Workflow cannot be started"}
-            workflow.status = "RUNNING"
-            db.commit()
-            db.refresh(workflow)
-            return {
-                "id": workflow.id,
-                "status": workflow.status
-            }
-        finally:
-            db.close()    
+    db: Session = SessionLocal()
+    try:
+        workflow = (
+            db.query(Workflow)
+            .filter(Workflow.id==workflow_id)
+            .first()
+        )
+        if not workflow:
+            return {"error": "Workflow not found"}
+        if workflow.status != "CREATED":
+            return {"error": "Workflow cannot be started"}
+        workflow.status = "RUNNING"
+        db.commit()
+        db.refresh(workflow)
+        return {
+            "id": workflow.id,
+            "status": workflow.status
+        }
+    finally:
+        db.close()    
 
 @app.post("/workflows/{workflow_id}/complete")
 def complete_workflow(workflow_id: int):
