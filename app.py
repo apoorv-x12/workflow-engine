@@ -59,7 +59,8 @@ def start_workflow(workflow_id: int):
         workflow.status = "RUNNING"
         first_step.status = "RUNNING"
         db.commit()
-        db.refresh(workflow, first_step)
+        db.refresh(workflow)
+        db.refresh(first_step)
         
         return {
             "workflow_id": workflow.id,
