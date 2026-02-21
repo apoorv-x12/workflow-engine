@@ -1,8 +1,12 @@
 # pylint: disable=import-error
 from fastapi import FastAPI
 from db import engine, SessionLocal, Base
-from models import Workflow
+from models import Workflow, WorkflowStep
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
+
+class CreateWorkflowStepRequest(BaseModel):
+    name: str
 
 app = FastAPI()
 # Create tables once when app starts
@@ -96,5 +100,39 @@ def fail_workflow(workflow_id: int):
         db.refresh(workflow)
 
         return {"id": workflow.id, "status": workflow.status}
+    finally:
+        db.close()
+
+@app.post("/workflows/{workflow_id}/steps")
+def create_workflow_step(workflow_id: int, body: CreateWorkflowStepRequest):
+    db = SessionLocal()
+    try:
+        workflow = (
+            db.query(Workflow)
+            .filter(Workflow.id == workflow_id)
+            .first()
+        )
+
+        if workflow is None:
+            return {"error": "Workflow not found"}
+        if workflow.status != "CREATED":
+            return {"error": "Workflow steps can only be added to workflows in CREATED state"}
+        
+        step = WorkflowStep(
+            workflow_id=workflow_id,
+            name=body.name,
+            status="CREATED"
+        )
+        db.add(step)
+        db.commit()
+        db.refresh(step)
+        
+        return {
+            "id": step.id,  
+            "workflow_id": step.workflow_id,
+            "name": step.name,
+            "status": step.status
+        }
+
     finally:
         db.close()
