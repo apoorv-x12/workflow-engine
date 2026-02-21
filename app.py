@@ -44,14 +44,31 @@ def start_workflow(workflow_id: int):
         )
         if not workflow:
             raise HTTPException(status_code=404, detail="Workflow not found")
+        
         if workflow.status != "CREATED":
             raise HTTPException(status_code=400, detail="Workflow cannot be started")
+        
+        first_step=db.query(WorkflowStep).filter(WorkflowStep.workflow_id==workflow_id).order_by(WorkflowStep.step_number.asc()).first()
+        # steps=workflow.steps - use this shortcut for all steps of the workflow, but it will make an additional query to fetch steps if not already loaded
+        if not first_step:
+            raise HTTPException(status_code=400, detail="Workflow cannot be started without steps")
+        
+        if first_step.status != "CREATED":
+            raise HTTPException(status_code=400, detail="Workflow cannot be started because the first step is not in CREATED state")
+        
         workflow.status = "RUNNING"
+        first_step.status = "RUNNING"
         db.commit()
-        db.refresh(workflow)
+        db.refresh(workflow, first_step)
+        
         return {
-            "id": workflow.id,
-            "status": workflow.status
+            "workflow_id": workflow.id,
+            "status": workflow.status,
+            "first_step": {
+                "id": first_step.id,
+                "name": first_step.name,
+                "status": first_step.status
+            }
         }
     finally:
         db.close()    
@@ -119,9 +136,13 @@ def create_workflow_step(workflow_id: int, body: CreateWorkflowStepRequest):
         if workflow.status != "CREATED":
             raise HTTPException(status_code=400, detail="Workflow steps can only be added to workflows in CREATED state")
         
+        step = db.query(WorkflowStep).filter(WorkflowStep.workflow_id==workflow_id).order_by(WorkflowStep.step_number.desc()).first()
+        step_number = step.step_number + 1 if step else 1
+
         step = WorkflowStep(
             workflow_id=workflow_id,
             name=body.name,
+            step_number=step_number,
             status="CREATED"
         )
         db.add(step)

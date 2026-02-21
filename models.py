@@ -13,8 +13,9 @@ class WorkflowStep(Base):
     __tablename__ = "workflow_steps"
 
     id = Column(Integer, primary_key=True, index=True)
-    workflow_id = Column(Integer, ForeignKey("workflows.id"), nullable=False)
+    workflow_id = Column(Integer, ForeignKey("workflows.id"), nullable=False, index=True)
     name = Column(String, nullable=False)
     status = Column(String, nullable=False)
+    step_number = Column(Integer, nullable=False)
     workflow=relationship("Workflow", back_populates="steps")
     
