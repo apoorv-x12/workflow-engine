@@ -56,6 +56,10 @@ def start_workflow(workflow_id: int):
         if first_step.status != "CREATED":
             raise HTTPException(status_code=400, detail="Workflow cannot be started because the first step is not in CREATED state")
         
+        running_step=db.query(WorkflowStep).filter(WorkflowStep.workflow_id==workflow_id, WorkflowStep.status=="RUNNING").first()
+        if running_step:    
+            raise HTTPException(status_code=400, detail="Workflow cannot be started because another step is already in RUNNING state")
+        
         workflow.status = "RUNNING"
         first_step.status = "RUNNING"
         db.commit()
@@ -68,6 +72,7 @@ def start_workflow(workflow_id: int):
             "first_step": {
                 "id": first_step.id,
                 "name": first_step.name,
+                "step_number": first_step.step_number,
                 "status": first_step.status
             }
         }
@@ -154,6 +159,7 @@ def create_workflow_step(workflow_id: int, body: CreateWorkflowStepRequest):
             "id": step.id,  
             "workflow_id": step.workflow_id,
             "name": step.name,
+            "step_number": step.step_number,
             "status": step.status
         }
 
