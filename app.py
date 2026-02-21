@@ -1,5 +1,5 @@
 # pylint: disable=import-error
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from db import engine, SessionLocal, Base
 from models import Workflow, WorkflowStep
 from sqlalchemy.orm import Session
@@ -32,6 +32,7 @@ def create_workflow():
         }
     finally:        
         db.close()
+        
 @app.post("/workflows/{workflow_id}/start")
 def start_workflow(workflow_id: int):
     db: Session = SessionLocal()
@@ -42,9 +43,9 @@ def start_workflow(workflow_id: int):
             .first()
         )
         if not workflow:
-            return {"error": "Workflow not found"}
+            raise HTTPException(status_code=404, detail="Workflow not found")
         if workflow.status != "CREATED":
-            return {"error": "Workflow cannot be started"}
+            raise HTTPException(status_code=400, detail="Workflow cannot be started")
         workflow.status = "RUNNING"
         db.commit()
         db.refresh(workflow)
@@ -66,10 +67,10 @@ def complete_workflow(workflow_id: int):
         )
 
         if workflow is None:
-            return {"error": "Workflow not found"}
+            raise HTTPException(status_code=404, detail="Workflow not found")
 
         if workflow.status != "RUNNING":
-            return {"error": "Workflow cannot be completed"}
+            raise HTTPException(status_code=400, detail="Workflow cannot be completed")
 
         workflow.status = "COMPLETED"
         db.commit()
@@ -90,10 +91,10 @@ def fail_workflow(workflow_id: int):
         )
 
         if workflow is None:
-            return {"error": "Workflow not found"}
+            raise HTTPException(status_code=404, detail="Workflow not found")
 
         if workflow.status != "RUNNING":
-            return {"error": "Workflow cannot be failed"}
+            raise HTTPException(status_code=400, detail="Workflow cannot be failed")
 
         workflow.status = "FAILED"
         db.commit()
@@ -114,9 +115,9 @@ def create_workflow_step(workflow_id: int, body: CreateWorkflowStepRequest):
         )
 
         if workflow is None:
-            return {"error": "Workflow not found"}
+            raise HTTPException(status_code=404, detail="Workflow not found")
         if workflow.status != "CREATED":
-            return {"error": "Workflow steps can only be added to workflows in CREATED state"}
+            raise HTTPException(status_code=400, detail="Workflow steps can only be added to workflows in CREATED state")
         
         step = WorkflowStep(
             workflow_id=workflow_id,
