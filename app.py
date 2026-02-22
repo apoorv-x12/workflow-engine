@@ -64,7 +64,6 @@ def start_workflow(workflow_id: int):
         first_step.status = "RUNNING"
         db.commit()
         db.refresh(workflow)
-        db.refresh(first_step)
         
         return {
             "workflow_id": workflow.id,
@@ -197,6 +196,7 @@ def complete_workflow_step(workflow_id: int, step_id: int):
 
         db.commit()
         db.refresh(step)
+        db.refresh(workflow)
 
         return {
             "id": step.id,
@@ -231,13 +231,14 @@ def fail_workflow_step(workflow_id: int, step_id: int):
         if not step:
             raise HTTPException(status_code=404, detail="Workflow step not found")
         if step.status != "RUNNING":
-            raise HTTPException(status_code=400, detail="Workflow step cannot be completed because it is not in RUNNING state")
+            raise HTTPException(status_code=400, detail="Workflow step cannot be FAILED because it is not in RUNNING state")
       
         step.status = "FAILED"
         workflow.status = "FAILED"
 
         db.commit()
         db.refresh(step)
+        db.refresh(workflow)
 
         return {
             "id": step.id,
