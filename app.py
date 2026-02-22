@@ -69,12 +69,6 @@ def start_workflow(workflow_id: int):
         return {
             "workflow_id": workflow.id,
             "status": workflow.status,
-            "first_step": {
-                "id": first_step.id,
-                "name": first_step.name,
-                "step_number": first_step.step_number,
-                "status": first_step.status
-            }
         }
     finally:
         db.close()    
@@ -158,10 +152,58 @@ def create_workflow_step(workflow_id: int, body: CreateWorkflowStepRequest):
         return {
             "id": step.id,  
             "workflow_id": step.workflow_id,
-            "name": step.name,
-            "step_number": step.step_number,
-            "status": step.status
+            "step_status": step.status
         }
 
+    finally:
+        db.close()
+
+
+@app.post("/workflows/{workflow_id}/steps/{step_id}/complete")
+def complete_workflow_step(workflow_id: int, step_id: int):
+    db = SessionLocal()
+    try:
+        workflow=(
+           db.query(Workflow)
+           .filter(Workflow.id==workflow_id)
+           .first()
+        )
+
+        if not workflow:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        if workflow.status != "RUNNING":
+            raise HTTPException(status_code=400, detail="Workflow steps can only be completed for workflows in RUNNING state")
+        
+        step=(
+            db.query(WorkflowStep)
+            .filter(WorkflowStep.id==step_id, WorkflowStep.workflow_id==workflow_id)
+            .first()
+        )
+        if not step:
+            raise HTTPException(status_code=404, detail="Workflow step not found")
+        if step.status != "RUNNING":
+            raise HTTPException(status_code=400, detail="Workflow step cannot be completed because it is not in RUNNING state")
+      
+        step.status = "COMPLETED"
+        next_step = (
+            db.query(WorkflowStep)
+            .filter(WorkflowStep.workflow_id==workflow_id, WorkflowStep.step_number==step.step_number+1)
+            .first()
+        )
+        if next_step:
+            next_step.status = "RUNNING"
+        else:
+            workflow.status = "COMPLETED"
+
+        db.commit()
+        db.refresh(step)
+
+        return {
+            "id": step.id,
+            "workflow_id": step.workflow_id,
+            "workflow_status": workflow.status,
+            "step_status": step.status
+        }
+    
     finally:
         db.close()
