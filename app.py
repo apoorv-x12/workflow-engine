@@ -249,3 +249,62 @@ def fail_workflow_step(workflow_id: int, step_id: int):
     
     finally:
         db.close()
+
+@app.get('/workflows')
+def get_all_worflows():
+    db=SessionLocal()
+    try:
+        workflows_db=(
+            db.query(Workflow)
+            .all()
+        )
+
+        workflows=[
+            {'id':w.id,'status':w.status}
+            for w in workflows_db
+        ]
+
+        return {
+         'workflows' : workflows
+        }
+      
+    finally:
+        db.close()
+
+@app.get('/workflows/{workflow_id}')
+def get_workflow(workflow_id: int):
+    db=SessionLocal()
+    try:
+        workflow_db=(
+            db.query(Workflow)
+            .filter(Workflow.id==workflow_id)
+            .first()
+        )
+        if not workflow_db:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        
+        worflow_steps=(
+            db.query(WorkflowStep)
+            .filter(WorkflowStep.workflow_id==workflow_id)
+            .order_by(WorkflowStep.step_number.asc())
+            .all()
+        )
+
+        steps=[
+            {
+                'id':s.id,
+                'name':s.name,
+                'step_number':s.step_number,
+                'status':s.status
+            }
+            for s in worflow_steps
+        ]
+
+        return {
+            'id': workflow_db.id,
+            'status': workflow_db.status,
+            'steps': steps
+        }
+    
+    finally:
+        db.close()
