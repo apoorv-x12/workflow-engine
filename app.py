@@ -30,6 +30,9 @@ def create_workflow():
             "id": workflow.id,
             "status": workflow.status
         }
+    except Exception:
+        db.rollback()
+        raise 
     finally:        
         db.close()
         
@@ -69,6 +72,9 @@ def start_workflow(workflow_id: int):
             "workflow_id": workflow.id,
             "status": workflow.status,
         }
+    except Exception:
+        db.rollback()
+        raise 
     finally:
         db.close()    
 
@@ -93,6 +99,9 @@ def complete_workflow(workflow_id: int):
         db.refresh(workflow)
 
         return {"id": workflow.id, "status": workflow.status}
+    except Exception:
+        db.rollback()
+        raise 
     finally:
         db.close()
 
@@ -117,6 +126,9 @@ def fail_workflow(workflow_id: int):
         db.refresh(workflow)
 
         return {"id": workflow.id, "status": workflow.status}
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -153,7 +165,9 @@ def create_workflow_step(workflow_id: int, body: CreateWorkflowStepRequest):
             "workflow_id": step.workflow_id,
             "step_status": step.status
         }
-
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -205,6 +219,9 @@ def complete_workflow_step(workflow_id: int, step_id: int):
             "step_status": step.status
         }
     
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -247,6 +264,9 @@ def fail_workflow_step(workflow_id: int, step_id: int):
             "step_status": step.status
         }
     
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
@@ -267,7 +287,10 @@ def get_all_worflows():
         return {
          'workflows' : workflows
         }
-      
+
+    except Exception:
+        db.rollback()
+        raise  
     finally:
         db.close()
 
@@ -305,6 +328,8 @@ def get_workflow(workflow_id: int):
             'status': workflow_db.status,
             'steps': steps
         }
-    
+    except Exception:
+        db.rollback()
+        raise 
     finally:
         db.close()
