@@ -24,6 +24,7 @@ class WorkflowStep(Base):
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     step_number = Column(Integer, nullable=False)
     workflow=relationship("Workflow", back_populates="steps")
+    claimed_by = Column(DateTime(timezone=True), nullable=True)  # To track which worker claimed the step
 
     __table_args__ = (
         # Ensure that step_number is unique within the same workflow
