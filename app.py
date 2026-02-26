@@ -203,6 +203,7 @@ def complete_workflow_step(workflow_id: int, step_id: int):
             .filter(WorkflowStep.workflow_id==workflow_id, WorkflowStep.step_number==step.step_number+1)
             .first()
         )
+        
         if next_step:
             next_step.status = "RUNNING"
         else:

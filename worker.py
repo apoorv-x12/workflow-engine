@@ -27,9 +27,17 @@ def worker():
                time.sleep(3)  # Simulate step execution time
 
                # Mark the step as completed
-               print(f"Worker completed step: {running_step.id}")
                requests.post(f"{API_BASE_URL}/workflows/{running_step.workflow_id}/steps/{running_step.id}/complete")
+               print(f"Worker completed step: {running_step.id}")
                
+               # For testing, we can fail step number 2 to see the workflow failure handling
+               ''' 
+               if running_step.step_number==2:
+                  requests.post(f"{API_BASE_URL}/workflows/{running_step.workflow_id}/steps/{running_step.id}/fail")
+               else:
+                  requests.post(f"{API_BASE_URL}/workflows/{running_step.workflow_id}/steps/{running_step.id}/complete") 
+               '''
+              
         except Exception as e:
             print(f"Worker encountered an error: {e}")
             db.rollback()
