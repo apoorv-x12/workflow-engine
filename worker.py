@@ -16,8 +16,10 @@ def worker():
                 .order_by(WorkflowStep.created_at, WorkflowStep.id)
                 .first()
            )
+           print(f"Worker fetched step: {running_step.id if running_step else 'None'} with status: {running_step.status if running_step else 'N/A'}")
 
            if not running_step:
+                print("No running steps found. Worker is idle.")
                 time.sleep(2)
                 continue
            else:
@@ -25,6 +27,7 @@ def worker():
                time.sleep(3)  # Simulate step execution time
 
                # Mark the step as completed
+               print(f"Worker completed step: {running_step.id}")
                requests.post(f"{API_BASE_URL}/workflows/{running_step.workflow_id}/steps/{running_step.id}/complete")
                
         except Exception as e:
