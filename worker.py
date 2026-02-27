@@ -5,6 +5,7 @@ from sqlalchemy import func, update
 from models import WorkflowStep
 
 API_BASE_URL = "http://localhost:8000"
+timeout= '30 seconds'  # Define a timeout for claiming steps
 
 def worker():
     while True:
@@ -13,7 +14,8 @@ def worker():
            
             running_step=(
                  db.query(WorkflowStep)
-                 .filter(WorkflowStep.status=="RUNNING", WorkflowStep.claimed_by==None)  # Only fetch steps that are not claimed by any worker
+                 .filter(WorkflowStep.status=="RUNNING",
+                        (WorkflowStep.claimed_by == None) | (WorkflowStep.claimed_by < func.datetime('now',f'-{timeout}')))  # Only fetch steps that are not claimed by any worker or claimed more than 5 minutes ago
                  .order_by(WorkflowStep.created_at, WorkflowStep.id)
                  .first()
             )
@@ -27,16 +29,17 @@ def worker():
             # Claim the step by setting the claimed_by timestamp
             claimed_running_step = (
                 update(WorkflowStep)
-                .where(WorkflowStep.id == running_step.id, WorkflowStep.claimed_by == None)  # Ensure we only claim if it's still unclaimed
+                .where(WorkflowStep.id == running_step.id, (WorkflowStep.claimed_by == None) | (WorkflowStep.claimed_by < func.datetime('now',f'-{timeout}')))  # Ensure we only claim if it's still unclaimed or claimed more than 5 minutes ago
                 .values(claimed_by=func.now())
             )
             result=db.execute(claimed_running_step)
-            print(f"Worker claimed step: {running_step.id if running_step else 'None'}. Rows affected: {result.rowcount}")
+            print(f"Worker tried to claim step: {running_step.id if running_step else 'None'}. Rows affected: {result.rowcount}")
 
             if result.rowcount == 0:
                 print(f"Worker failed to claim step: {running_step.id}. It may have been claimed by another worker.")
                 db.rollback()
                 continue
+            print(f"Worker claimed step: {running_step.id if running_step else 'None'}")
             db.commit()
 
             # execute the step
