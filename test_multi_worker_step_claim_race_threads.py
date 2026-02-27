@@ -4,8 +4,11 @@ import threading
 THREADS=10
 
 def run_worker_thread(worker_id):
-    print(f"Starting worker thread: {worker_id}")
-    subprocess.run(["python", "worker.py"])
+    try:
+        print(f"Starting worker process: {worker_id}")
+        subprocess.run(["python", "worker.py"])
+    except Exception as e:
+        print(f"Error running worker process {worker_id}: {e}")
 
 threads=[]
 for i in range(THREADS):
