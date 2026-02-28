@@ -39,11 +39,12 @@ def worker():
                 print(f"Worker failed to claim step: {running_step.id}. It may have been claimed by another worker.")
                 db.rollback()
                 continue
+
             print(f"Worker claimed step: {running_step.id if running_step else 'None'}")
             db.commit()
 
             # execute the step
-            time.sleep(3)  # Simulate step execution tim        
+            time.sleep(3)       
             # Mark the step as completed
             requests.post(f"{API_BASE_URL}/workflows/{running_step.workflow_id}/steps/{running_step.id}/complete")
             print(f"Worker completed step: {running_step.id}")
@@ -59,7 +60,7 @@ def worker():
         except Exception as e:
             print(f"Worker encountered an error: {e}")
             db.rollback()
-            raise
+        
         finally:
             db.close()
 
