@@ -69,7 +69,8 @@ def worker():
                 else:
                     step.claimed_by=None  # Reset claimed_by to allow other workers to quickly pick it up for retry
                     db.commit()  # Update retry count in DB so that worker can retry the step
-            
+            print(f"Worker tried processing step: {step.id} with result: {result}")
+
             # For testing, we can fail step number 2 to see the workflow failure handling
             ''' 
             if running_step.step_number==2:
