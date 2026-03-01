@@ -3,6 +3,7 @@ import requests
 from db import SessionLocal
 from sqlalchemy import func, update
 from models import WorkflowStep
+from worker_executer import execute_step
 
 API_BASE_URL = "http://localhost:8000"
 timeout= '30 seconds'  # Define a timeout for claiming steps
@@ -44,10 +45,13 @@ def worker():
             db.commit()
 
             # execute the step
-            time.sleep(3)       
+            result=execute_step(running_step)     
             # Mark the step as completed
-            requests.post(f"{API_BASE_URL}/workflows/{running_step.workflow_id}/steps/{running_step.id}/complete")
-            print(f"Worker completed step: {running_step.id}")
+            if result:
+                requests.post(f"{API_BASE_URL}/workflows/{running_step.workflow_id}/steps/{running_step.id}/complete")
+            else:
+                requests.post(f"{API_BASE_URL}/workflows/{running_step.workflow_id}/steps/{running_step.id}/fail")
+            print(f"Worker {'completed' if result else 'failed'} step: {running_step.id}")
             
             # For testing, we can fail step number 2 to see the workflow failure handling
             ''' 

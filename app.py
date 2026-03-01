@@ -7,6 +7,8 @@ from pydantic import BaseModel
 
 class CreateWorkflowStepRequest(BaseModel):
     name: str
+    execution_type: str
+    execution_payload: dict 
 
 app = FastAPI()
 # Create tables once when app starts
@@ -154,7 +156,9 @@ def create_workflow_step(workflow_id: int, body: CreateWorkflowStepRequest):
             workflow_id=workflow_id,
             name=body.name,
             step_number=step_number,
-            status="CREATED"
+            status="CREATED",
+            execution_type=body.execution_type,
+            execution_payload=body.execution_payload
         )
         db.add(step)
         db.commit()

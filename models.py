@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, UniqueConstraint, DateTime, func
+from sqlalchemy import JSON, Column, Integer, String, ForeignKey, UniqueConstraint, DateTime, func
 from sqlalchemy.orm import relationship
 from db import Base
 
@@ -25,6 +25,8 @@ class WorkflowStep(Base):
     step_number = Column(Integer, nullable=False)
     workflow=relationship("Workflow", back_populates="steps")
     claimed_by = Column(DateTime(timezone=True), nullable=True)  # To track which worker claimed the step
+    execution_type = Column(String, nullable=False)  # To specify the type of execution (e.g., "python", "shell", etc.)
+    execution_payload = Column(JSON, nullable=False)  # To store any details needed for execution
 
     __table_args__ = (
         # Ensure that step_number is unique within the same workflow
