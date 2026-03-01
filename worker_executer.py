@@ -6,7 +6,7 @@ REQUEST_TIMEOUT=10
 def execute_step(step):
     print(f"Executing step {step.id} of type {step.execution_type} with payload {step.execution_payload}")
     # Here you would have logic to execute the step based on its type and payload
-    if step.execution_type == "SLEEP":
+    if step.execution_type.upper() == "SLEEP":
         duration = step.execution_payload.get("duration")
         if not duration:
             print("No duration specified for SLEEP step. Failing step.")
@@ -16,7 +16,7 @@ def execute_step(step):
         time.sleep(duration)
         return "SUCCESS"  # Indicate success
     
-    elif step.execution_type == "HTTP":
+    elif step.execution_type.upper() == "HTTP":
         url = step.execution_payload.get("url")
         method = step.execution_payload.get("method", "GET").upper()
         headers = step.execution_payload.get("headers", {})
