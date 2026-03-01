@@ -4,6 +4,7 @@ from db import SessionLocal
 from sqlalchemy import func, update
 from models import WorkflowStep
 from worker_executer import execute_step
+import os
 
 API_BASE_URL = "http://localhost:8000"
 claim_timeout= '15 seconds'  # Define a timeout for claiming steps
@@ -44,7 +45,8 @@ def worker():
 
             print(f"Worker claimed step: {running_step.id if running_step else 'None'}")
             db.commit()
-            
+           # os._exit(1)  # Exit the worker process after commiting for testing purposes. Remove this line for continuous processing in production.
+
             # Refetch step as DB is the source of truth as u will use step data
             step=(
                 db.query(WorkflowStep)

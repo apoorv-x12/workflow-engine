@@ -1,7 +1,7 @@
 import subprocess
 import threading
 
-THREADS=10
+THREADS=5
 
 def run_worker_thread(worker_id):
     try:

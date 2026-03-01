@@ -1,7 +1,7 @@
 import subprocess
 import multiprocessing
 
-PROCESSES=10
+PROCESSES=5
 
 def run_worker_process(worker_id):
     try:
