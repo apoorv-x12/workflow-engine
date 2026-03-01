@@ -64,7 +64,7 @@ def worker():
                 requests.post(f"{API_BASE_URL}/workflows/{step.workflow_id}/steps/{step.id}/fail",timeout=REQUEST_TIMEOUT)
             elif result=='RETRY':
                 step.retry_count+=1
-                if step.retry_count>=step.max_retries:
+                if step.retry_count>step.max_retries:
                     requests.post(f"{API_BASE_URL}/workflows/{step.workflow_id}/steps/{step.id}/fail",timeout=REQUEST_TIMEOUT)
                 else:
                     step.claimed_by=None  # Reset claimed_by to allow other workers to quickly pick it up for retry
