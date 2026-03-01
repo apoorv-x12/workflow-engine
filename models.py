@@ -27,6 +27,8 @@ class WorkflowStep(Base):
     claimed_by = Column(DateTime(timezone=True), nullable=True)  # To track which worker claimed the step
     execution_type = Column(String, nullable=False)  # To specify the type of execution (e.g., "python", "shell", etc.)
     execution_payload = Column(JSON, nullable=False)  # To store any details needed for execution
+    retry_count=Column(Integer, nullable=False, default=0)
+    max_retries=Column(Integer, nullable=False, default=3)
 
     __table_args__ = (
         # Ensure that step_number is unique within the same workflow
