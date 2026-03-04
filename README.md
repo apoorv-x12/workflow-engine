@@ -1,6 +1,6 @@
 # Workflow Engine (WIP)
 
-A **production-oriented workflow orchestration backend**, focused on correctness, execution safety, and state transitions rather than UI or integrations.
+A **production-oriented distributed workflow orchestration backend**, focused on correctness, execution safety, and state transitions rather than UI or integrations.
 
 This project models the **core backend problems** that show up in real systems:
 
