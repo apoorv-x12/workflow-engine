@@ -69,8 +69,14 @@ def worker():
                 if step.retry_count>step.max_retries:
                     requests.post(f"{API_BASE_URL}/workflows/{step.workflow_id}/steps/{step.id}/fail",timeout=REQUEST_TIMEOUT)
                 else:
+                    # rety backoff
+                    backoff_time=min(30, 2**step.retry_count)  # Cap the backoff time at 30 seconds
+                    print(f"Worker will retry step: {step.id} after backoff time: {backoff_time} seconds")
+                    time.sleep(backoff_time)
+
                     step.claimed_by=None  # Reset claimed_by to allow other workers to quickly pick it up for retry
                     db.commit()  # Update retry count in DB so that worker can retry the step
+
             print(f"Worker tried processing step: {step.id} with result: {result}")
 
             # For testing, we can fail step number 2 to see the workflow failure handling
