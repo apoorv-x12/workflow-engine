@@ -26,6 +26,8 @@ def execute_step(step):
             print("No URL specified for HTTP step. Failing step.")
             return "FAIL"
         
+        # Make the HTTP request idempotent 
+        headers['Idempotency-Key'] = f"{step.workflow_id}-{step.id}"
         response = requests.request(method, url, headers=headers, data=data, timeout=REQUEST_TIMEOUT)
         
         if response.status_code >= 200 and response.status_code < 300:
