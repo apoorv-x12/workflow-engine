@@ -5,6 +5,9 @@ from sqlalchemy import func, update
 from models import WorkflowStep
 from worker_executer import execute_step
 import os
+from basic_logging import get_logger
+
+logger=get_logger(__name__)
 
 API_BASE_URL = "http://localhost:8000"
 claim_timeout= '15 seconds'  # Define a timeout for claiming steps
@@ -14,7 +17,6 @@ def worker():
     while True:
         db=SessionLocal()
         try:
-           
             running_step=(
                  db.query(WorkflowStep)
                  .filter(WorkflowStep.status=="RUNNING",
@@ -22,10 +24,11 @@ def worker():
                  .order_by(WorkflowStep.created_at, WorkflowStep.id)
                  .first()
             )
-            print(f"Worker fetched step: {running_step.id if running_step else 'None'} with status: {running_step.status if running_step else 'N/A'}")
+
+            logger.info(f"Worker fetched step: {running_step.id if running_step else 'None'} with status: {running_step.status if running_step else 'N/A'}")
  
             if not running_step:
-                 print("No running steps found. Worker is idle.")
+                 logger.error("No running steps found. Worker is idle.")
                  time.sleep(2)
                  continue
             
@@ -36,16 +39,17 @@ def worker():
                 .values(claimed_by=func.now())
             )
             result=db.execute(claimed_running_step)
-            print(f"Worker tried to claim step: {running_step.id if running_step else 'None'}. Rows affected: {result.rowcount}")
+            
+            logger.info(f"Worker tried to claim step: {running_step.id if running_step else 'None'}. Rows affected: {result.rowcount}")
 
             if result.rowcount == 0:
-                print(f"Worker failed to claim step: {running_step.id}. It may have been claimed by another worker.")
+                logger.error(f"Worker failed to claim step: {running_step.id}. It may have been claimed by another worker.")
                 db.rollback()
                 continue
 
-            print(f"Worker claimed step: {running_step.id if running_step else 'None'}")
+            logger.info(f"Worker claimed step: {running_step.id if running_step else 'None'}")
             db.commit()
-           # os._exit(1)  # Exit the worker process after commiting for testing purposes. Remove this line for continuous processing in production.
+            # os._exit(1)  # Exit the worker process after commiting for testing purposes. Remove this line for continuous processing in production.
 
             # Refetch step as DB is the source of truth as u will use step data
             step=(
@@ -54,30 +58,36 @@ def worker():
                 .first()
             )
 
+            logger.info(f"Worker is executing step: {step.id} of type: {step.execution_type} with payload: {step.execution_payload}")
+
             # execute the step
             try:
                 result=execute_step(step) 
             except Exception as e:
+                logger.warning(f"Worker encountered an error while executing step: {step.id}. Error: {e}")
                 result="RETRY"    
             # Mark the step as completed
             if result=='SUCCESS':
+                logger.info(f"Worker completed step: {step.id} successfully. Notifying API.")
                 requests.post(f"{API_BASE_URL}/workflows/{step.workflow_id}/steps/{step.id}/complete",timeout=REQUEST_TIMEOUT)
             elif result=='FAIL':
+                logger.error(f"Worker failed step: {step.id}. Notifying API.")
                 requests.post(f"{API_BASE_URL}/workflows/{step.workflow_id}/steps/{step.id}/fail",timeout=REQUEST_TIMEOUT)
             elif result=='RETRY':
                 step.retry_count+=1
                 if step.retry_count>step.max_retries:
+                    logger.error(f"Worker exhausted max retries for step: {step.id}. Marking step as failed and notifying API.")
                     requests.post(f"{API_BASE_URL}/workflows/{step.workflow_id}/steps/{step.id}/fail",timeout=REQUEST_TIMEOUT)
                 else:
                     # rety backoff
                     backoff_time=min(30, 2**step.retry_count)  # Cap the backoff time at 30 seconds
-                    print(f"Worker will retry step: {step.id} after backoff time: {backoff_time} seconds")
+
+                    logger.warning(f"Worker will retry step: {step.id} after backoff time: {backoff_time} seconds")
                     time.sleep(backoff_time)
 
                     step.claimed_by=None  # Reset claimed_by to allow other workers to quickly pick it up for retry
                     db.commit()  # Update retry count in DB so that worker can retry the step
 
-            print(f"Worker tried processing step: {step.id} with result: {result}")
 
             # For testing, we can fail step number 2 to see the workflow failure handling
             ''' 
@@ -88,7 +98,7 @@ def worker():
             '''
               
         except Exception as e:
-            print(f"Worker encountered an error: {e}")
+            logger.error(f"Worker encountered an error: {e}")
             db.rollback()
     
         finally:

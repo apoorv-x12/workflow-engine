@@ -4,6 +4,9 @@ from db import engine, SessionLocal, Base
 from models import Workflow, WorkflowStep
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from basic_logging import get_logger
+
+logger = get_logger(__name__)
 
 class CreateWorkflowStepRequest(BaseModel):
     name: str
@@ -28,10 +31,12 @@ def create_workflow():
         db.add(workflow)
         db.commit()
         db.refresh(workflow)
+        
         return {
             "id": workflow.id,
             "status": workflow.status
         }
+    
     except Exception:
         db.rollback()
         raise 
