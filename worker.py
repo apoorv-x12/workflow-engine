@@ -5,6 +5,7 @@ from sqlalchemy import func, update
 from models import WorkflowStep
 from worker_executer import execute_step
 import os
+import uuid
 from basic_logging import get_logger
 
 logger=get_logger(__name__)
@@ -12,6 +13,7 @@ logger=get_logger(__name__)
 API_BASE_URL = "http://localhost:8000"
 claim_timeout= '15 seconds'  # Define a timeout for claiming steps
 REQUEST_TIMEOUT=10
+WORKER_ID=f'{os.getpid()}-{uuid.uuid4()}'  # Unique identifier for the worker instance, useful for logging and debugging
 
 def worker():
     while True:
@@ -25,10 +27,10 @@ def worker():
                  .first()
             )
 
-            logger.info(f"Worker fetched step: {running_step.id if running_step else 'None'} with status: {running_step.status if running_step else 'N/A'}")
+            logger.debug(f"Worker fetched step: {running_step.id if running_step else 'None'} with status: {running_step.status if running_step else 'N/A'}")
  
             if not running_step:
-                 logger.error("No running steps found. Worker is idle.")
+                 logger.warning("No running steps found. Worker is idle.")
                  time.sleep(2)
                  continue
             
@@ -43,7 +45,7 @@ def worker():
             logger.info(f"Worker tried to claim step: {running_step.id if running_step else 'None'}. Rows affected: {result.rowcount}")
 
             if result.rowcount == 0:
-                logger.error(f"Worker failed to claim step: {running_step.id}. It may have been claimed by another worker.")
+                logger.warning(f"Worker failed to claim step: {running_step.id}. It may have been claimed by another worker.")
                 db.rollback()
                 continue
 
@@ -58,13 +60,13 @@ def worker():
                 .first()
             )
 
-            logger.info(f"Worker is executing step: {step.id} of type: {step.execution_type} with payload: {step.execution_payload}")
+            logger.debug(f"Worker is executing step: {step.id} of type: {step.execution_type} with payload: {step.execution_payload}")
 
             # execute the step
             try:
                 result=execute_step(step) 
-            except Exception as e:
-                logger.warning(f"Worker encountered an error while executing step: {step.id}. Error: {e}")
+            except Exception:
+                logger.exception(f"Worker encountered an error while executing step: {step.id}")
                 result="RETRY"    
             # Mark the step as completed
             if result=='SUCCESS':
@@ -87,6 +89,7 @@ def worker():
 
                     step.claimed_by=None  # Reset claimed_by to allow other workers to quickly pick it up for retry
                     db.commit()  # Update retry count in DB so that worker can retry the step
+                    logger.info(f"Worker reset claim for step: {step.id} to allow retry. Current retry count: {step.retry_count} and claimed_by reset to: {step.claimed_by}")
 
 
             # For testing, we can fail step number 2 to see the workflow failure handling
@@ -97,12 +100,13 @@ def worker():
                requests.post(f"{API_BASE_URL}/workflows/{step.workflow_id}/steps/{step.id}/complete") 
             '''
               
-        except Exception as e:
-            logger.error(f"Worker encountered an error: {e}")
+        except Exception:
+            logger.exception("Worker encountered an unexpected error")
             db.rollback()
     
         finally:
             db.close()
 
 if __name__ == "__main__":
+    logger.info(f"Worker started with ID: {WORKER_ID}")
     worker()
