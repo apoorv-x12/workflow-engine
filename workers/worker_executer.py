@@ -1,6 +1,6 @@
 from time import time
 import requests
-from basic_logging import get_logger
+from utils.basic_logging import get_logger
 
 logger = get_logger(__name__)
 

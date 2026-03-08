@@ -1,12 +1,13 @@
 import subprocess
 import multiprocessing
+import sys
 
 PROCESSES=5
 
 def run_worker_process(worker_id):
     try:
         print(f"Starting worker process: {worker_id}")
-        subprocess.run(["python", "worker.py"])
+        subprocess.run([sys.executable, "-m", "workers.worker"], check=True)
     except Exception as e:
         print(f"Error running worker process {worker_id}: {e}")
 
