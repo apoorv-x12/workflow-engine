@@ -1,0 +1,36 @@
+venv/
+.venv/
+env/
+ENV/
+__pycache__/
+.git/
+.qodo/
+*.pyc
+*.db
+
+# Secrets and local env
+.env
+.env.*
+
+# Test and tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Tests (exclude from production image context)
+test_race/
