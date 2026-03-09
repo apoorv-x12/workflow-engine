@@ -6,23 +6,22 @@ from models.workflow_models import WorkflowStep
 from workers.worker_executer import execute_step
 import os
 import uuid
+from datetime import datetime, timedelta, timezone
 from utils.basic_logging import get_logger
+from config import API_BASE_URL, CLAIM_TIMEOUT_SECONDS, REQUEST_TIMEOUT, WORKER_ID
 
 logger=get_logger(__name__)
-
-API_BASE_URL = "http://localhost:8000"
-claim_timeout= '15 seconds'  # Define a timeout for claiming steps
-REQUEST_TIMEOUT=10
-WORKER_ID=f'{os.getpid()}-{uuid.uuid4()}'  # Unique identifier for the worker instance, useful for logging and debugging
 
 def worker():
     while True:
         db=SessionLocal()
         try:
+            stale_claim_threshold = datetime.now(timezone.utc) - timedelta(seconds=CLAIM_TIMEOUT_SECONDS)
+            
             running_step=(
                  db.query(WorkflowStep)
                  .filter(WorkflowStep.status=="RUNNING",
-                        (WorkflowStep.claimed_by == None) | (WorkflowStep.claimed_by < func.datetime('now',f'-{claim_timeout}')))  # Only fetch steps that are not claimed by any worker or claimed more than 5 minutes ago
+                        (WorkflowStep.claimed_by == None) | (WorkflowStep.claimed_by < stale_claim_threshold))
                  .order_by(WorkflowStep.created_at, WorkflowStep.id)
                  .first()
             )
@@ -37,7 +36,10 @@ def worker():
             # Claim the step by setting the claimed_by timestamp
             claimed_running_step = (
                 update(WorkflowStep)
-                .where(WorkflowStep.id == running_step.id, (WorkflowStep.claimed_by == None) | (WorkflowStep.claimed_by < func.datetime('now',f'-{claim_timeout}')))  # Ensure we only claim if it's still unclaimed or claimed more than 5 minutes ago
+                .where(
+                    WorkflowStep.id == running_step.id,
+                    (WorkflowStep.claimed_by == None) | (WorkflowStep.claimed_by < stale_claim_threshold),
+                )
                 .values(claimed_by=func.now())
             )
             result=db.execute(claimed_running_step)

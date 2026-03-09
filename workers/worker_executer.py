@@ -1,10 +1,9 @@
 from time import time
 import requests
 from utils.basic_logging import get_logger
+from config import REQUEST_TIMEOUT
 
 logger = get_logger(__name__)
-
-REQUEST_TIMEOUT=10
 
 def execute_step(step):
     logger.debug(f"Executing step {step.id} of type {step.execution_type} with payload {step.execution_payload}")
