@@ -1,4 +1,4 @@
-from time import time
+import time
 import requests
 from utils.basic_logging import get_logger
 from config import REQUEST_TIMEOUT

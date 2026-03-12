@@ -41,6 +41,8 @@ services:
         condition: service_healthy
       api:
         condition: service_started
+    deploy:
+      replicas: 2
 
 volumes:
   postgres_data:
