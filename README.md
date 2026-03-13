@@ -217,7 +217,7 @@ uvicorn app:app --reload
 4. Let workers claim and execute the active step.
 5. Inspect workflow status via the read endpoints.
 
-## What this project signals to hiring teams
+## What this project signals
 
 This project is a concrete signal for roles involving backend platforms, workflow systems, job processing, or distributed application design.
 
