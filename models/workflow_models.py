@@ -29,6 +29,7 @@ class WorkflowStep(Base):
     execution_payload = Column(JSON, nullable=False)  # To store any details needed for execution
     retry_count=Column(Integer, nullable=False, default=0)
     max_retries=Column(Integer, nullable=False, default=3)
+    next_retry_at=Column(DateTime(timezone=True), server_default=func.now(), nullable=False) 
 
     __table_args__ = (
         # Ensure that step_number is unique within the same workflow

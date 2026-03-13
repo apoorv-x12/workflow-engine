@@ -21,7 +21,8 @@ def worker():
             running_step=(
                  db.query(WorkflowStep)
                  .filter(WorkflowStep.status=="RUNNING",
-                        (WorkflowStep.claimed_by == None) | (WorkflowStep.claimed_by < stale_claim_threshold))
+                        (WorkflowStep.claimed_by == None) | (WorkflowStep.claimed_by < stale_claim_threshold),
+                         WorkflowStep.next_retry_at <= datetime.now(timezone.utc))
                  .order_by(WorkflowStep.created_at, WorkflowStep.id)
                  .first()
             )
@@ -87,8 +88,9 @@ def worker():
                     backoff_time=min(30, 2**step.retry_count)  # Cap the backoff time at 30 seconds
 
                     logger.warning(f"Worker will retry step: {step.id} after backoff time: {backoff_time} seconds")
-                    time.sleep(backoff_time)
-
+                   # time.sleep(backoff_time)
+                    retry_timeout=datetime.now(timezone.utc)+timedelta(seconds=backoff_time)
+                    step.next_retry_at=retry_timeout
                     step.claimed_by=None  # Reset claimed_by to allow other workers to quickly pick it up for retry
                     db.commit()  # Update retry count in DB so that worker can retry the step
                     logger.info(f"Worker reset claim for step: {step.id} to allow retry. Current retry count: {step.retry_count} and claimed_by reset to: {step.claimed_by}")
