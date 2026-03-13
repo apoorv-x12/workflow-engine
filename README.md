@@ -4,6 +4,35 @@ A production-minded workflow orchestration backend built with FastAPI, SQLAlchem
 
 This project is designed to show backend engineering depth beyond CRUD APIs. It focuses on workflow state management, multi-worker coordination, failure handling, and durable execution using the database as the source of truth.
 
+## Quick start
+
+The fastest way to run the full system is with Docker Compose.
+
+1. Copy `.env.example` to `.env`.
+2. Start the stack:
+
+```bash
+docker compose up --build
+```
+
+3. Verify the API is up:
+
+```bash
+curl http://localhost:8000/
+```
+
+Expected response:
+
+```json
+{"status":"ok"}
+```
+
+This starts:
+
+- Postgres on `5432`
+- API on `8000`
+- worker container(s) based on `WORKER_REPLICAS`
+
 ## Why this is a strong backend project
 
 This codebase demonstrates practical distributed-systems thinking:
@@ -160,7 +189,7 @@ These are especially useful because they validate one of the most important prop
 
 ### Option 1: Docker Compose
 
-1. Configure `.env`.
+1. Copy `.env.example` to `.env`.
 2. Start the stack:
 
 ```bash
