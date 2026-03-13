@@ -42,7 +42,7 @@ services:
       api:
         condition: service_started
     deploy:
-      replicas: 2
+      replicas: ${WORKER_REPLICAS}
 
 volumes:
   postgres_data:
