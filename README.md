@@ -1,137 +1,144 @@
-Workflow Engine
+# Workflow Engine
 
-A distributed workflow orchestration engine designed for reliable execution of long-running processes.
+A distributed workflow orchestration engine for reliable execution of long-running processes.
+
+Built with FastAPI, Postgres, and background workers, this system focuses on **durable execution, concurrency safety, and failure-aware workflow progression** using the database as the source of truth.
 
 ---
 
-Key Highlights
+## Key Highlights
 
 - Database-driven execution (no in-memory queue dependency)
-- Multi-worker coordination with atomic step claiming
-- Idempotent step execution with retry + backoff
-- Crash recovery using persisted workflow state
-- Designed as an execution layer for workflow / agent systems
+- Atomic step claiming for safe multi-worker execution
+- Idempotent step execution with retries and backoff
+- Crash recovery via persisted workflow state
+- Horizontal worker scaling using shared database coordination
 
 ---
 
-Why this matters
+## Architecture
 
-Most background job systems work in simple cases but break under concurrency, retries, and failures.
-
-This system focuses on:
-
-- durable state transitions
-- safe multi-worker execution
-- failure-aware workflow progression
-
----
-
-Architecture
-
-Component| Responsibility
-FastAPI| workflow control plane and APIs
-SQLAlchemy| persistence layer
-Postgres| shared source of truth
-Workers| polling, claiming, execution
-Docker Compose| local distributed setup
+| Component       | Responsibility                              |
+|----------------|----------------------------------------------|
+| FastAPI        | workflow control plane (APIs, state updates) |
+| SQLAlchemy     | persistence and relational modeling          |
+| Postgres       | durable source of truth                      |
+| Workers        | polling, claiming, execution, retries        |
+| Docker Compose | local distributed environment                |
 
 ---
 
-Execution Model
+## Execution Model
 
-1. Workflow + steps are created
-2. Workflow starts → first step becomes runnable
-3. Workers poll for runnable steps
-4. One worker atomically claims a step
-5. Step executes
-6. On success → next step activated
-7. On failure → retry or fail workflow
+1. Create workflow and ordered steps  
+2. Start workflow → first step becomes runnable  
+3. Workers poll database for runnable steps  
+4. One worker atomically claims a step  
+5. Step executes (HTTP / task logic)  
+6. On success → next step activated  
+7. On failure → retry or fail workflow  
 
----
-
-Core Design Concepts
-
-Durable State Machine
-
-- Workflow: "CREATED → RUNNING → COMPLETED | FAILED"
-- Step: "CREATED → RUNNING → COMPLETED | FAILED"
-
-All transitions are persisted in the database.
+Correctness comes from **durable state transitions**, not process-local memory.
 
 ---
 
-Concurrency-Safe Execution
+## Core Design
 
-- Atomic step claiming via conditional updates
-- Prevents double execution across workers
-- Race-condition tested
+### Durable State Machine
 
----
+Workflow: `CREATED → RUNNING → COMPLETED | FAILED`  
+Step: `CREATED → RUNNING → COMPLETED | FAILED`
 
-Idempotent Execution
-
-- Safe retries for external calls
-- HTTP steps use "Idempotency-Key"
-- Prevents duplicate side effects
+All transitions are persisted and API-driven.
 
 ---
 
-Retry & Failure Handling
+### Concurrency-Safe Execution
 
-- Per-step metadata: "retry_count", "max_retries", "next_retry_at"
+- Atomic step claiming via conditional `UPDATE`
+- Only one worker can execute a step
+- Verified with multi-worker race-condition tests
+
+---
+
+### Idempotent Execution
+
+- Safe retries for external side effects
+- HTTP steps use `Idempotency-Key`
+- Prevents duplicate execution effects
+
+---
+
+### Retry & Failure Handling
+
+Each step stores:
+
+- `retry_count`
+- `max_retries`
+- `next_retry_at`
+
 - Exponential backoff (capped)
-- Handles retriable vs terminal failures
+- Distinguishes retriable vs terminal failures
 
 ---
 
-Crash Recovery
+### Crash Recovery
 
 - Workers are stateless
-- Execution state stored in DB
-- New workers resume from last state
+- Execution state stored in Postgres
+- New workers resume from last persisted state
 
 ---
 
-Supported Step Types
+## Supported Step Types
 
-- "SLEEP"
-- "HTTP" (with idempotency protection)
+- `SLEEP`
+- `HTTP` (with idempotency protection)
 
 ---
 
-Quick Start
+## Quick Start
 
+```bash
 cp .env.example .env
 docker compose up --build
+```
 
 Verify:
 
+```bash
 curl http://localhost:8000/
 # {"status":"ok"}
+```
+
+Services:
+- API → `localhost:8000`
+- Postgres → `5432`
+- Workers → configurable replicas
 
 ---
 
-What this project demonstrates
+## What this project demonstrates
 
 - workflow / job orchestration design
 - distributed worker coordination
-- concurrency control and race handling
+- concurrency control and race-condition handling
 - durable execution using database as source of truth
 - retry, idempotency, and failure-aware systems
 
 ---
 
-Future Direction
+## Roadmap
 
-This system can be extended into a full agent execution engine by adding:
-
-- LLM-based planning layer
-- dynamic workflow generation
-- tool execution pipelines
+- branching workflows and DAG support
+- improved retry strategies (jittered backoff)
+- observability (logs, metrics, tracing)
+- migration support (Alembic)
+- deeper failure-path testing
 
 ---
 
-Summary
+## Summary
 
 This is not just a task runner.
 
