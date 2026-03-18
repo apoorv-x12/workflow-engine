@@ -1,246 +1,139 @@
-# Workflow Engine
+Workflow Engine
 
-A production-minded workflow orchestration backend built with FastAPI, SQLAlchemy, Postgres, and background workers.
+A distributed workflow orchestration engine designed for reliable execution of long-running processes.
 
-This project is designed to show backend engineering depth beyond CRUD APIs. It focuses on workflow state management, multi-worker coordination, failure handling, and durable execution using the database as the source of truth.
+---
 
-## Quick start
+Key Highlights
 
-The fastest way to run the full system is with Docker Compose.
+- Database-driven execution (no in-memory queue dependency)
+- Multi-worker coordination with atomic step claiming
+- Idempotent step execution with retry + backoff
+- Crash recovery using persisted workflow state
+- Designed as an execution layer for workflow / agent systems
 
-1. Copy `.env.example` to `.env`.
-2. Start the stack:
+---
 
-```bash
+Why this matters
+
+Most background job systems work in simple cases but break under concurrency, retries, and failures.
+
+This system focuses on:
+
+- durable state transitions
+- safe multi-worker execution
+- failure-aware workflow progression
+
+---
+
+Architecture
+
+Component| Responsibility
+FastAPI| workflow control plane and APIs
+SQLAlchemy| persistence layer
+Postgres| shared source of truth
+Workers| polling, claiming, execution
+Docker Compose| local distributed setup
+
+---
+
+Execution Model
+
+1. Workflow + steps are created
+2. Workflow starts → first step becomes runnable
+3. Workers poll for runnable steps
+4. One worker atomically claims a step
+5. Step executes
+6. On success → next step activated
+7. On failure → retry or fail workflow
+
+---
+
+Core Design Concepts
+
+Durable State Machine
+
+- Workflow: "CREATED → RUNNING → COMPLETED | FAILED"
+- Step: "CREATED → RUNNING → COMPLETED | FAILED"
+
+All transitions are persisted in the database.
+
+---
+
+Concurrency-Safe Execution
+
+- Atomic step claiming via conditional updates
+- Prevents double execution across workers
+- Race-condition tested
+
+---
+
+Idempotent Execution
+
+- Safe retries for external calls
+- HTTP steps use "Idempotency-Key"
+- Prevents duplicate side effects
+
+---
+
+Retry & Failure Handling
+
+- Per-step metadata: "retry_count", "max_retries", "next_retry_at"
+- Exponential backoff (capped)
+- Handles retriable vs terminal failures
+
+---
+
+Crash Recovery
+
+- Workers are stateless
+- Execution state stored in DB
+- New workers resume from last state
+
+---
+
+Supported Step Types
+
+- "SLEEP"
+- "HTTP" (with idempotency protection)
+
+---
+
+Quick Start
+
+cp .env.example .env
 docker compose up --build
-```
 
-3. Verify the API is up:
+Verify:
 
-```bash
 curl http://localhost:8000/
-```
+# {"status":"ok"}
 
-Expected response:
+---
 
-```json
-{"status":"ok"}
-```
+What this project demonstrates
 
-This starts:
+- workflow / job orchestration design
+- distributed worker coordination
+- concurrency control and race handling
+- durable execution using database as source of truth
+- retry, idempotency, and failure-aware systems
 
-- Postgres on `5432`
-- API on `8000`
-- worker container(s) based on `WORKER_REPLICAS`
+---
 
-## Why this is a strong backend project
+Future Direction
 
-This codebase demonstrates practical distributed-systems thinking:
+This system can be extended into a full agent execution engine by adding:
 
-- explicit workflow and step state machines
-- database-coordinated workers instead of in-memory job queues
-- atomic step claiming to avoid double execution
-- crash recovery using claim timeouts
-- sequential workflow progression driven by durable state transitions
-- retry scheduling with persisted backoff metadata
-- containerized local environment with API, workers, and Postgres
+- LLM-based planning layer
+- dynamic workflow generation
+- tool execution pipelines
 
-Instead of optimizing for UI, this project focuses on the execution layer problems that real systems run into:
+---
 
-- job orchestration
-- long-running background work
-- concurrency safety
-- failure recovery
-- idempotent external calls
-- state consistency across processes
+Summary
 
-## What is implemented today
+This is not just a task runner.
 
-### Control plane
-
-The API supports:
-
-- creating workflows
-- adding ordered steps to a workflow
-- starting a workflow
-- completing or failing individual steps
-- completing or failing the overall workflow
-- fetching workflow state and step progress
-
-### Execution plane
-
-Background workers:
-
-- poll for runnable steps
-- only pick steps in `RUNNING` state
-- respect `next_retry_at` before retrying failed executions
-- use a conditional `UPDATE` plus `rowcount` check for atomic claiming
-- execute step logic outside the API process
-- call back into the API to transition state after execution
-
-### Supported step executors
-
-Current step types:
-
-- `SLEEP`
-- `HTTP`
-
-For HTTP execution, the worker attaches an `Idempotency-Key` derived from workflow and step IDs so repeated attempts are safer against duplicate side effects.
-
-### Retry behavior
-
-Retry metadata is stored per step:
-
-- `retry_count`
-- `max_retries`
-- `next_retry_at`
-
-When step execution raises a retriable error, the worker schedules the next attempt using exponential backoff capped at 30 seconds.
-
-### Data-model safety
-
-The schema enforces useful invariants:
-
-- unique step ordering per workflow
-- unique step names per workflow
-- foreign-key ownership from step to workflow
-
-## Execution model
-
-High-level flow:
-
-1. API creates a workflow and its ordered steps.
-2. Starting a workflow moves the workflow to `RUNNING` and activates the first step.
-3. Workers poll the database for runnable steps.
-4. A worker atomically claims one step.
-5. The worker executes the step.
-6. On success, the API marks the step complete and activates the next step.
-7. On failure, the workflow is failed or the step is retried based on execution result.
-
-This mirrors patterns used in orchestration systems, job runners, and workflow engines where correctness comes from durable state transitions, not from a single long-running process holding everything in memory.
-
-## Lifecycle model
-
-### Workflow lifecycle
-
-`CREATED -> RUNNING -> COMPLETED | FAILED`
-
-### Step lifecycle
-
-`CREATED -> RUNNING -> COMPLETED | FAILED`
-
-The design keeps transitions explicit and API-driven instead of allowing arbitrary status mutation.
-
-## Concurrency and failure handling
-
-One of the most valuable parts of this project is the worker coordination model.
-
-Workers do not coordinate with each other directly. They coordinate through shared database state.
-
-Current safety mechanisms:
-
-- atomic step claiming via conditional update
-- stale-claim recovery using a configurable timeout
-- persisted retry schedule via `next_retry_at`
-- race-condition tests for multi-worker claiming
-
-This means the project is not just "can run background tasks", but "can run background tasks with multiple workers without casually double-processing the same work."
-
-## Architecture
-
-| Component | Responsibility |
-|----------|----------------|
-| FastAPI | workflow control plane and transition APIs |
-| SQLAlchemy | persistence and relational modeling |
-| Postgres | shared durable state across API and workers |
-| Worker loop | polling, claiming, execution, retry scheduling |
-| Docker Compose | local distributed environment |
-
-## Local stack
-
-The repository includes a containerized local setup with:
-
-- Postgres
-- FastAPI API service
-- worker service
-- configurable worker replica count
-
-That makes it easy to demonstrate horizontal workers against a shared database, which is a much stronger hiring signal than a single-process demo.
-
-## Tests
-
-Current tests focus on worker claim races:
-
-- threaded worker-claim race test
-- multi-process worker-claim race test
-
-These are especially useful because they validate one of the most important properties in the system: only one worker should successfully claim a runnable step.
-
-## Tech stack
-
-- Python
-- FastAPI
-- SQLAlchemy
-- Postgres
-- Requests
-- Docker Compose
-
-## Run locally
-
-### Option 1: Docker Compose
-
-1. Copy `.env.example` to `.env`.
-2. Start the stack:
-
-```bash
-docker compose up --build
-```
-
-This starts:
-
-- Postgres on `5432`
-- API on `8000`
-- worker container(s) based on `WORKER_REPLICAS`
-
-### Option 2: Run API locally
-
-```bash
-pip install -r requirements.txt
-uvicorn app:app --reload
-```
-
-## Example API flow
-
-1. Create a workflow.
-2. Add one or more ordered steps.
-3. Start the workflow.
-4. Let workers claim and execute the active step.
-5. Inspect workflow status via the read endpoints.
-
-## What this project signals
-
-This project is a concrete signal for roles involving backend platforms, workflow systems, job processing, or distributed application design.
-
-It shows experience with:
-
-- modeling finite state transitions
-- designing worker-based execution systems
-- reasoning about concurrency and race conditions
-- building around durable persistence instead of process-local state
-- thinking about retries, timeouts, and idempotency
-- shipping containerized services that work together
-
-## Roadmap
-
-The system is already useful as a backend architecture project, and there is a clear path to production-hardening:
-
-- stronger retry semantics and jittered backoff
-- richer workflow definitions and branching
-- audit logs and observability
-- Alembic migrations
-- better terminal-state handling around worker callback failures
-- more end-to-end and failure-path tests
-
-## Summary
-
-This is not just a task runner. It is a small workflow engine that models the real backend concerns behind orchestration systems: durable state, worker coordination, safe transitions, and failure-aware execution.
+It is a backend execution engine that models real-world concerns:
+durable state, safe concurrency, retries, and failure-aware workflow execution.
