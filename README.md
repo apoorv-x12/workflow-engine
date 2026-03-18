@@ -2,7 +2,7 @@
 
 A distributed workflow orchestration engine for reliable execution of long-running processes.
 
-Built with FastAPI, Postgres, and background workers, this system focuses on **durable execution, concurrency safety, and failure-aware workflow progression** using the database as the source of truth.
+Built with FastAPI, Postgres, and background workers, this system focuses on durable execution, concurrency safety, and failure-aware workflow progression using the database as the source of truth.
 
 ---
 
@@ -10,7 +10,7 @@ Built with FastAPI, Postgres, and background workers, this system focuses on **d
 
 - Database-driven execution (no in-memory queue dependency)
 - Atomic step claiming for safe multi-worker execution
-- Idempotent step execution with retries and backoff
+- Idempotent step execution with retry + backoff
 - Crash recovery via persisted workflow state
 - Horizontal worker scaling using shared database coordination
 
@@ -34,11 +34,11 @@ Built with FastAPI, Postgres, and background workers, this system focuses on **d
 2. Start workflow → first step becomes runnable  
 3. Workers poll database for runnable steps  
 4. One worker atomically claims a step  
-5. Step executes (HTTP / task logic)  
+5. Step executes  
 6. On success → next step activated  
 7. On failure → retry or fail workflow  
 
-Correctness comes from **durable state transitions**, not process-local memory.
+Correctness comes from durable state transitions, not process-local memory.
 
 ---
 
@@ -55,17 +55,17 @@ All transitions are persisted and API-driven.
 
 ### Concurrency-Safe Execution
 
-- Atomic step claiming via conditional `UPDATE`
-- Only one worker can execute a step
-- Verified with multi-worker race-condition tests
+- Atomic step claiming via conditional update  
+- Only one worker executes a step  
+- Verified with multi-worker race-condition tests  
 
 ---
 
 ### Idempotent Execution
 
-- Safe retries for external side effects
-- HTTP steps use `Idempotency-Key`
-- Prevents duplicate execution effects
+- Safe retries for external side effects  
+- HTTP steps use `Idempotency-Key`  
+- Prevents duplicate execution effects  
 
 ---
 
@@ -77,16 +77,16 @@ Each step stores:
 - `max_retries`
 - `next_retry_at`
 
-- Exponential backoff (capped)
-- Distinguishes retriable vs terminal failures
+- Exponential backoff (capped)  
+- Handles retriable vs terminal failures  
 
 ---
 
 ### Crash Recovery
 
-- Workers are stateless
-- Execution state stored in Postgres
-- New workers resume from last persisted state
+- Workers are stateless  
+- Execution state stored in Postgres  
+- New workers resume from last state  
 
 ---
 
@@ -120,21 +120,20 @@ Services:
 
 ## What this project demonstrates
 
-- workflow / job orchestration design
-- distributed worker coordination
-- concurrency control and race-condition handling
-- durable execution using database as source of truth
-- retry, idempotency, and failure-aware systems
+- workflow / job orchestration design  
+- distributed worker coordination  
+- concurrency control and race-condition handling  
+- durable execution using database as source of truth  
+- retry, idempotency, and failure-aware systems  
 
 ---
 
 ## Roadmap
 
-- branching workflows and DAG support
-- improved retry strategies (jittered backoff)
-- observability (logs, metrics, tracing)
-- migration support (Alembic)
-- deeper failure-path testing
+- DAG / branching workflows  
+- observability (metrics and tracing)  
+- LLM / agentic workflow execution  
+- improved retry strategies (jittered backoff)  
 
 ---
 
