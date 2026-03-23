@@ -2,7 +2,9 @@
 
 A distributed workflow orchestration engine for reliable execution of long-running processes.
 
-Built with FastAPI, Postgres, and background workers, this system focuses on durable execution, concurrency safety, and failure-aware workflow progression using the database as the source of truth.
+**Correctness comes from durable state transitions, not process-local memory.**
+
+Built with FastAPI, PostgreSQL, and stateless background workers, this system focuses on durable execution, concurrency safety, and failure-aware workflow progression using the database as the source of truth.
 
 ---
 
@@ -16,15 +18,34 @@ Built with FastAPI, Postgres, and background workers, this system focuses on dur
 
 ---
 
-## Architecture
+## System Architecture
+
+    Client / API User
+            |
+            v
+       FastAPI (Control Plane)
+            |
+            v
+     PostgreSQL (Durable State)
+            |
+            v
+       Worker Processes
+     (poll → claim → execute → retry)
+
+The database acts as the single source of truth for workflow and step state.  
+Workers remain stateless and coordinate exclusively through persisted state.
+
+---
+
+## Architecture Components
 
 | Component       | Responsibility                              |
 |----------------|----------------------------------------------|
-| FastAPI        | workflow control plane (APIs, state updates) |
-| SQLAlchemy     | persistence and relational modeling          |
-| Postgres       | durable source of truth                      |
-| Workers        | polling, claiming, execution, retries        |
-| Docker Compose | local distributed environment                |
+| FastAPI        | Workflow control plane (APIs, state updates) |
+| SQLAlchemy     | Persistence and relational modeling          |
+| PostgreSQL     | Durable workflow and step state storage      |
+| Workers        | Polling, claiming, execution, retries        |
+| Docker Compose | Local distributed environment simulation     |
 
 ---
 
@@ -38,7 +59,7 @@ Built with FastAPI, Postgres, and background workers, this system focuses on dur
 6. On success → next step activated  
 7. On failure → retry or fail workflow  
 
-Correctness comes from durable state transitions, not process-local memory.
+System correctness is derived from persisted state transitions rather than process-local memory.
 
 ---
 
@@ -46,94 +67,144 @@ Correctness comes from durable state transitions, not process-local memory.
 
 ### Durable State Machine
 
-Workflow: `CREATED → RUNNING → COMPLETED | FAILED`  
-Step: `CREATED → RUNNING → COMPLETED | FAILED`
+Workflow lifecycle:
 
-All transitions are persisted and API-driven.
+    CREATED → RUNNING → COMPLETED | FAILED
+
+Step lifecycle:
+
+    CREATED → RUNNING → COMPLETED | FAILED
+
+All state transitions are persisted in PostgreSQL, enabling reliable crash recovery and consistent workflow progression.
 
 ---
 
 ### Concurrency-Safe Execution
 
-- Atomic step claiming via conditional update  
-- Only one worker executes a step  
-- Verified with multi-worker race-condition tests  
+- Atomic step claiming implemented via conditional database updates  
+- Guarantees single-worker execution for each step  
+- Prevents duplicate processing in multi-worker environments  
+- Verified using multi-worker race-condition testing  
 
 ---
 
 ### Idempotent Execution
 
 - Safe retries for external side effects  
-- HTTP steps use `Idempotency-Key`  
-- Prevents duplicate execution effects  
+- HTTP steps use Idempotency-Key  
+- Prevents duplicate execution effects after retries or failures  
 
 ---
 
 ### Retry & Failure Handling
 
-Each step stores:
+Each step persists retry metadata:
 
-- `retry_count`
-- `max_retries`
-- `next_retry_at`
+- retry_count  
+- max_retries  
+- next_retry_at  
+
+Retry strategy:
 
 - Exponential backoff (capped)  
-- Handles retriable vs terminal failures  
+- Differentiates retriable vs terminal failures  
+- Prevents tight retry loops  
 
 ---
 
 ### Crash Recovery
 
 - Workers are stateless  
-- Execution state stored in Postgres  
-- New workers resume from last state  
+- Execution state stored in PostgreSQL  
+- New workers resume execution from last persisted state  
+- No in-memory dependency for workflow correctness  
+
+---
+
+## Failure Scenarios
+
+Worker crash during execution  
+→ Step state remains persisted in database  
+→ Worker restart resumes execution safely  
+
+Duplicate worker polling  
+→ Atomic step claiming ensures only one worker executes the step  
+
+Network failure during HTTP call  
+→ Step marked failed and retried using exponential backoff  
+
+Database restart  
+→ Workers reconnect and resume processing using persisted state  
+
+---
+
+## Design Tradeoffs
+
+Database coordination vs message queue  
+→ Chose database coordination to prioritize durability and system simplicity  
+
+Polling vs event-driven workers  
+→ Polling provides predictable recovery behavior after worker crashes  
+
+Sequential workflows vs DAG execution  
+→ Initial implementation focuses on correctness and reliability before complexity  
+
+Stateless workers vs in-memory state  
+→ Stateless design enables horizontal scaling and crash resilience  
 
 ---
 
 ## Supported Step Types
 
-- `SLEEP`
-- `HTTP` (with idempotency protection)
+- SLEEP  
+- HTTP (with idempotency protection)
 
 ---
 
 ## Quick Start
 
-```bash
-cp .env.example .env
-docker compose up --build
-```
+### 1. Configure environment
 
-Verify:
+    cp .env.example .env
 
-```bash
-curl http://localhost:8000/
-# {"status":"ok"}
-```
+### 2. Start services
 
-Services:
-- API → `localhost:8000`
-- Postgres → `5432`
-- Workers → configurable replicas
+    docker compose up --build
+
+### 3. Verify system
+
+    curl http://localhost:8000/
+
+Expected response:
+
+    {"status":"ok"}
+
+### Services
+
+- API → localhost:8000  
+- Postgres → 5432  
+- Workers → configurable replicas  
 
 ---
 
-## What this project demonstrates
+## What This Project Demonstrates
 
-- workflow / job orchestration design  
-- distributed worker coordination  
-- concurrency control and race-condition handling  
-- durable execution using database as source of truth  
-- retry, idempotency, and failure-aware systems  
+- Workflow / job orchestration design  
+- Distributed worker coordination  
+- Concurrency control and race-condition handling  
+- Durable execution using database as source of truth  
+- Retry, idempotency, and failure-aware system behavior  
+- Horizontal scaling with stateless workers  
 
 ---
 
 ## Roadmap
 
 - DAG / branching workflows  
-- observability (metrics and tracing)  
+- Observability (metrics and tracing)  
 - LLM / agentic workflow execution  
-- improved retry strategies (jittered backoff)  
+- Jittered retry strategies  
+- Event-driven worker model  
 
 ---
 
@@ -141,5 +212,10 @@ Services:
 
 This is not just a task runner.
 
-It is a backend execution engine that models real-world concerns:
-durable state, safe concurrency, retries, and failure-aware workflow execution.
+It is a backend execution engine that models real-world distributed system concerns:
+
+- Durable state  
+- Safe concurrency  
+- Failure recovery  
+- Reliable workflow execution  
+- Predictable system behavior under failure
