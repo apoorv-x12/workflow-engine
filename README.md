@@ -20,17 +20,17 @@ Built with FastAPI, PostgreSQL, and stateless background workers, this system fo
 
 ## System Architecture
 
-Client / API User  
-        |  
-        v  
-   FastAPI (Control Plane)  
-        |  
-        v  
- PostgreSQL (Durable State)  
-        |  
-        v  
-   Worker Processes  
- (poll → claim → execute → retry)
+    Client / API User
+            |
+            v
+       FastAPI (Control Plane)
+            |
+            v
+     PostgreSQL (Durable State)
+            |
+            v
+       Worker Processes
+     (poll → claim → execute → retry)
 
 The database acts as the single source of truth for workflow and step state.  
 Workers remain stateless and coordinate exclusively through persisted state.
@@ -69,11 +69,11 @@ System correctness is derived from persisted state transitions rather than proce
 
 Workflow lifecycle:
 
-CREATED → RUNNING → COMPLETED | FAILED  
+    CREATED → RUNNING → COMPLETED | FAILED
 
 Step lifecycle:
 
-CREATED → RUNNING → COMPLETED | FAILED  
+    CREATED → RUNNING → COMPLETED | FAILED
 
 All state transitions are persisted in PostgreSQL, enabling reliable crash recovery and consistent workflow progression.
 
@@ -91,7 +91,7 @@ All state transitions are persisted in PostgreSQL, enabling reliable crash recov
 ### Idempotent Execution
 
 - Safe retries for external side effects  
-- HTTP steps use `Idempotency-Key`  
+- HTTP steps use Idempotency-Key  
 - Prevents duplicate execution effects after retries or failures  
 
 ---
@@ -163,18 +163,23 @@ Stateless workers vs in-memory state
 
 ## Quick Start
 
-cp .env.example .env  
-docker compose up --build  
+### 1. Configure environment
 
-Verify:
+    cp .env.example .env
 
-curl http://localhost:8000/  
+### 2. Start services
+
+    docker compose up --build
+
+### 3. Verify system
+
+    curl http://localhost:8000/
 
 Expected response:
 
-{"status":"ok"}
+    {"status":"ok"}
 
-Services:
+### Services
 
 - API → localhost:8000  
 - Postgres → 5432  
